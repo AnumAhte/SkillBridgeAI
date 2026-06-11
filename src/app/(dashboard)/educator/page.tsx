@@ -6,9 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AiTransparency } from "@/components/ai-transparency";
+import { useAuth } from "@/components/auth-provider";
+import { saveArtifact } from "@/lib/storage";
 import type { GeneratedCourse, Language } from "@/types";
 
 export default function EducatorPage() {
+  const { user } = useAuth();
   const [topic, setTopic] = useState("Beginner AI course");
   const [level, setLevel] = useState("beginner");
   const [language, setLanguage] = useState<Language>("en");
@@ -25,6 +29,10 @@ export default function EducatorPage() {
       });
       const json = await res.json();
       setCourse(json.data);
+      if (user && json.data) {
+        const generated = json.data as GeneratedCourse;
+        saveArtifact(user, "course", generated.title, generated).catch(() => {});
+      }
     } finally {
       setLoading(false);
     }
@@ -121,6 +129,15 @@ export default function EducatorPage() {
               </CardContent>
             </Card>
           ))}
+          <AiTransparency
+            rationale={`This curriculum was structured for a ${level} audience: outcomes were derived from the topic "${topic}", then modules were sequenced so each lesson builds on the previous one, with a quiz and a hands-on assignment per module to check understanding.`}
+            usedFallback={course.usedFallback}
+            factors={[
+              `Level "${level}" sets the vocabulary, lesson depth, and quiz difficulty.`,
+              `Content language follows your selection — courses generate natively in Uzbek, Russian, or English.`,
+              `${course.modules.length} modules · ${course.modules.reduce((n, m) => n + m.lessons.length, 0)} lessons · assignments use local, practical contexts.`,
+            ]}
+          />
           {course.usedFallback && (
             <p className="text-center text-xs text-muted-foreground">
               Generated in offline demo mode — add a Gemini API key for richer, language-native courses.

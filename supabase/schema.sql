@@ -336,3 +336,38 @@ insert into market_trends (skill_name,demand_index,growth_pct,category) values
   ('Python',92,18,'trending'),('Machine Learning',76,41,'emerging'),
   ('Prompt Engineering',64,120,'emerging'),('React',79,15,'trending')
 on conflict do nothing;
+
+-- ════════════════════════════════════════════════════════════════════
+-- User artifacts: fast-path persistence for user-generated content
+-- (career assessments, generated courses, tutor conversations).
+-- The normalized tables above remain the production migration target;
+-- this jsonb store lets every module persist with one RLS-protected path.
+-- ════════════════════════════════════════════════════════════════════
+
+create table if not exists user_artifacts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('assessment','course','tutor')),
+  title text not null,
+  payload jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists user_artifacts_user_kind_idx
+  on user_artifacts (user_id, kind, updated_at desc);
+
+alter table user_artifacts enable row level security;
+
+drop policy if exists "own artifacts select" on user_artifacts;
+create policy "own artifacts select" on user_artifacts
+  for select using (auth.uid() = user_id);
+drop policy if exists "own artifacts insert" on user_artifacts;
+create policy "own artifacts insert" on user_artifacts
+  for insert with check (auth.uid() = user_id);
+drop policy if exists "own artifacts update" on user_artifacts;
+create policy "own artifacts update" on user_artifacts
+  for update using (auth.uid() = user_id);
+drop policy if exists "own artifacts delete" on user_artifacts;
+create policy "own artifacts delete" on user_artifacts
+  for delete using (auth.uid() = user_id);

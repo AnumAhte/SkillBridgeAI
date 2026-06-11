@@ -10,7 +10,9 @@ import { Progress } from "@/components/ui/progress";
 import { AiTransparency } from "@/components/ai-transparency";
 import { CvDropzone } from "@/components/cv-dropzone";
 import { ROLE_TITLES } from "@/lib/data/skills";
-import type { CareerAnalysis } from "@/types";
+import { useAuth } from "@/components/auth-provider";
+import { saveArtifact } from "@/lib/storage";
+import type { AssessmentPayload, CareerAnalysis } from "@/types";
 
 const SAMPLE_CV = `Aziz Karimov — Tashkent, Uzbekistan
 Junior analyst with 1 year experience. Proficient in Excel and basic Python.
@@ -18,6 +20,7 @@ Built reports for a retail company. Strong communication skills.
 Education: BSc Economics, 2023. Languages: Uzbek, Russian, English.`;
 
 export default function CareerNavigatorPage() {
+  const { user } = useAuth();
   const [resumeText, setResumeText] = useState(SAMPLE_CV);
   const [targetRole, setTargetRole] = useState(ROLE_TITLES[0]);
   const [loading, setLoading] = useState(false);
@@ -25,9 +28,9 @@ export default function CareerNavigatorPage() {
   const [error, setError] = useState<string | null>(null);
   const [sourceFile, setSourceFile] = useState<string | null>(null);
 
-  // `text` override lets us analyze freshly-extracted CV text without waiting
-  // for the resumeText state update to flush.
-  async function analyze(text: string = resumeText) {
+  // Overrides let us analyze freshly-extracted CV text without waiting
+  // for the state updates to flush.
+  async function analyze(text: string = resumeText, file: string | null = sourceFile) {
     setLoading(true);
     setError(null);
     try {
@@ -39,6 +42,14 @@ export default function CareerNavigatorPage() {
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || "Analysis failed");
       setResult(json.data);
+      if (user) {
+        const analysis = json.data as CareerAnalysis;
+        const payload: AssessmentPayload = { analysis, sourceFile: file };
+        // Fire-and-forget: persistence must never block or break the analysis UX.
+        saveArtifact(user, "assessment", `${analysis.targetRole} — ${analysis.readinessScore}%`, payload).catch(
+          () => {},
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -51,7 +62,7 @@ export default function CareerNavigatorPage() {
     setResumeText(text);
     setSourceFile(filename);
     setError(null);
-    analyze(text); // auto-run skill analysis after extraction
+    analyze(text, filename); // auto-run skill analysis after extraction
   }
 
   return (
@@ -172,7 +183,19 @@ export default function CareerNavigatorPage() {
             </CardContent>
           </Card>
 
-          <AiTransparency rationale={result.rationale} usedFallback={result.usedFallback} />
+          <AiTransparency
+            rationale={result.rationale}
+            usedFallback={result.usedFallback}
+            detectedSkills={result.haveSkills.map((s) => s.name)}
+            factors={[
+              `Readiness ${result.readinessScore}% comes from weighing your detected skills against the ${result.targetRole} requirement profile.`,
+              ...result.gaps
+                .slice(0, 3)
+                .map((g) => `"${g.skill}" is missing and carries priority ${g.priority}/3 for this role, so it appears early in your roadmap.`),
+              "Roadmap order: highest-priority gaps first, with realistic weekly estimates.",
+            ]}
+            defaultOpen
+          />
         </div>
       )}
     </div>

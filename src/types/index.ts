@@ -65,6 +65,38 @@ export interface JobMatch {
   missingSkills: string[];
 }
 
+/** Signed-in identity — a real Supabase user or the offline demo student. */
+export interface AppUser {
+  id: string;
+  email: string | null;
+  name: string;
+  isDemo: boolean;
+}
+
+export type ArtifactKind = "assessment" | "course" | "tutor";
+
+/** A saved piece of user-generated content (assessment, course, tutor chat). */
+export interface Artifact<T = unknown> {
+  id: string;
+  kind: ArtifactKind;
+  title: string;
+  payload: T;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Payload stored for a career assessment artifact. */
+export interface AssessmentPayload {
+  analysis: CareerAnalysis;
+  sourceFile?: string | null;
+}
+
+/** Payload stored for a tutor conversation artifact. */
+export interface TutorSessionPayload {
+  language: Language;
+  messages: TutorMessage[];
+}
+
 export interface ApiResponse<T> {
   data: T | null;
   error: string | null;

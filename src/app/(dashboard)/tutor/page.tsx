@@ -5,7 +5,9 @@ import { Send, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Language, TutorMessage } from "@/types";
+import { useAuth } from "@/components/auth-provider";
+import { saveArtifact } from "@/lib/storage";
+import type { Language, TutorMessage, TutorSessionPayload } from "@/types";
 
 const LANGS: { value: Language; label: string }[] = [
   { value: "uz", label: "🇺🇿 Uzbek" },
@@ -14,11 +16,14 @@ const LANGS: { value: Language; label: string }[] = [
 ];
 
 export default function TutorPage() {
+  const { user } = useAuth();
   const [language, setLanguage] = useState<Language>("uz");
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Stable per-conversation id so each completed exchange upserts the same artifact.
+  const sessionIdRef = useRef<string | null>(null);
 
   async function send() {
     const text = input.trim();
@@ -47,6 +52,17 @@ export default function TutorPage() {
           return copy;
         });
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+      }
+
+      // Persist the completed exchange (fire-and-forget — never blocks chat).
+      if (user && acc) {
+        sessionIdRef.current ??= crypto.randomUUID();
+        const payload: TutorSessionPayload = {
+          language,
+          messages: [...next, { role: "assistant", content: acc }],
+        };
+        const title = next[0]?.content.slice(0, 60) || "Tutor session";
+        saveArtifact(user, "tutor", title, payload, sessionIdRef.current).catch(() => {});
       }
     } finally {
       setBusy(false);

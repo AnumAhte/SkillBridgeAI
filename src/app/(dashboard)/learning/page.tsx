@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { AiTransparency } from "@/components/ai-transparency";
 import { nextDifficulty, difficultyLabel, feedbackFor } from "@/lib/services/learning";
 
 // Demo quiz on the first roadmap skill (SQL).
@@ -99,6 +100,22 @@ export default function LearningPage() {
               Next lesson difficulty adjusted to{" "}
               <Badge variant="secondary">{difficultyLabel(result.next)}</Badge>
             </p>
+            <AiTransparency
+              rationale={`You scored ${result.score}%, so the engine ${
+                result.score < 60
+                  ? "simplified your next lessons to reinforce fundamentals before moving on"
+                  : result.score >= 80
+                    ? "unlocked more advanced content — you've demonstrated mastery at this level"
+                    : "kept you at the current level to consolidate what you've learned"
+              }.`}
+              confidence="high"
+              factors={[
+                "Below 60% → lessons simplify by one level (floor: Simplified).",
+                "80% and above → advanced content unlocks (cap: Advanced).",
+                "60–79% → difficulty holds steady while you consolidate.",
+                "The rule is deterministic and identical for every learner — no hidden scoring.",
+              ]}
+            />
           </CardContent>
         </Card>
       )}
