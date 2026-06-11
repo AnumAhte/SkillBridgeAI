@@ -52,7 +52,8 @@ export async function extractCvText(
 
   if (kind === "pdf") {
     const { default: pdfParse } = await import("pdf-parse/lib/pdf-parse.js");
-    const data = await pdfParse(buffer);
+    // pdf.js mishandles Node Buffers (ignores pool byteOffset) — pass a plain copy.
+    const data = await pdfParse(new Uint8Array(buffer));
     text = data.text;
   } else if (kind === "docx") {
     const mammoth = (await import("mammoth")).default;
